@@ -21,7 +21,7 @@ library(ggpubr)
 ## 2. Load and Preprocess the Dataset
 
 # Load the dataset
-heart_disease_dataset <- read_csv("/Users/stefanialavarda/Desktop/statistical_project/heart.csv")
+heart_disease_dataset <- read_csv("/Users/stefanialavarda/Desktop/statistical_project_1/heart.csv")
 data <- heart_disease_dataset
 
 # Remove missing values
@@ -130,7 +130,7 @@ ggplot(data, aes(x = STSlope, fill = HeartDisease)) +
 # Heart Disease distribution by Cholesterol level
 data <- data %>% filter(Cholesterol > 0)
 
-data_chol <- data_clean %>% 
+data_chol <- data %>% 
   mutate(Cholesterol_cohort = case_when(
     Cholesterol < 200 ~ 'Good Cholesterol Level', 
     Cholesterol >= 200 & Cholesterol < 240 ~ 'Borderline High', 
@@ -402,3 +402,41 @@ ggplot(data, aes(x = Age, y = as.numeric(HeartDisease) - 1)) +
 
 # use PCA to detect the most importante variable feature and then used them for neural network
 # if i don't use PCA, i have 11 predictors and only 510 features, troppo poche
+
+# Random forest
+install.packages("tree")
+library(tree)
+install.packages("ISLR")
+library(ISLR)
+
+tree.carseats=tree(HeartDisease~.,data=data)
+summary(tree.carseats)
+
+plot(tree.carseats)
+text(tree.carseats,pretty=0)
+
+tree.carseats
+
+set.seed(101)
+train=sample(1:nrow(data),400)
+tree.carseats=tree(HeartDisease~.,data,subset=train)
+plot(tree.carseats);text(tree.carseats,pretty=0)
+
+tree.pred=predict(tree.carseats,data[-train,],type="class")
+with(data[-train,],table(tree.pred,HeartDisease))
+
+(184+223)/918
+
+set.seed(101)
+cv.carseats=cv.tree(tree.carseats,FUN=prune.misclass)
+cv.carseats
+
+plot(cv.carseats)
+
+prune.carseats=prune.misclass(tree.carseats,best=9)
+plot(prune.carseats);text(prune.carseats,pretty=0)
+
+tree.pred=predict(prune.carseats,data[-train,],type="class")
+with(data[-train,],table(tree.pred,HeartDisease))
+
+(197+221)/918
