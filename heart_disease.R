@@ -17,6 +17,7 @@ library(car)
 library(PerformanceAnalytics)
 library(corrplot)
 library(ggpubr)
+library(gplots)
 
 ## 2. Load and Preprocess the Dataset
 
@@ -189,13 +190,12 @@ skeweness_values <- data.frame(
 print(skeweness_values)
 
 # Skewness of Old peak
-
-# check for negative values 
+# Check for negative values 
 data %>% filter(Oldpeak < 0)  %>% select(Oldpeak)
 data <- data  %>% mutate(Oldpeak = abs(Oldpeak)) 
 
-ggqqplot(data_clean$Oldpeak)
-skewness(data_clean$Oldpeak)
+ggqqplot(data$Oldpeak)
+skewness(data$Oldpeak)
 
 ggdensity(data, x = "Oldpeak", fill = "lightgray", title = "Old peak") +
   stat_overlay_normal_density(color = "red", linetype = "dashed")
@@ -205,26 +205,49 @@ data <- data %>%
   mutate(log_Oldpeak = log(Oldpeak + 1)) 
 
 # qq plot and density graph of the log transformation
-ggqqplot(data_log$log_Oldpeak)
+ggqqplot(data$log_Oldpeak)
 
-ggdensity(data_log, x = "log_Oldpeak", fill = "lightgray", title = "Logarithm of Old peak") +
+ggdensity(data, x = "log_Oldpeak", fill = "lightgray", title = "Logarithm of Old peak") +
   stat_overlay_normal_density(color = "red", linetype = "dashed")
 
-skewness(data_log$log_Oldpeak)
+skewness(data$log_Oldpeak)
+
+# Skewness of Cholesterol
+ggqqplot(data$Cholesterol)
+skewness(data$Cholesterol)
+
+ggdensity(data, x = "Cholesterol", fill = "lightgray", title = "Cholesterol") + 
+  stat_overlay_normal_density(color = "red", linetype = "dashed")
+
+data <- data %>% 
+  mutate(log_Cholesterol = log(Cholesterol))
+
+ggqqplot(data$log_Cholesterol)
+skewness(data$log_Cholesterol)
+
+ggdensity(data, x = "log_Cholesterol", fill = "lightgray", title = "Cholesterol") + 
+  stat_overlay_normal_density(color = "red", linetype = "dashed")
 
 ## 4. Correlation Analysis
 
 # Compute correlation matrix for numerical variables
-my_data <- data[sapply(data, is.numeric)]
-cor_matrix <- cor(my_data)
-round(cor_matrix, 2)
+my_data <- data %>% select(Age,RestingBP,Cholesterol,MaxHR,Oldpeak)
+res <-cor(my_data) 
+round(res, 2)
 
+symnum(res, abbr.colnames = FALSE)
+
+library(Hmisc)
+rcorr(as.matrix(my_data))
+
+# Scatter plot matrix
 scatterplotMatrix(my_data, regLine = TRUE)
 
+# Heatmap
 col<- colorRampPalette(c("blue", "white", "red"))(20)
-heatmap(x = cor_matrix, col = col, symm = TRUE, Colv = NA, Rowv = NA)
+heatmap(x = res, col = col, symm = TRUE, Colv = NA, Rowv = NA)
 
-corrplot(cor_matrix, type = "upper", 
+corrplot(res, type = "upper", 
          tl.col = "black", tl.srt = 45)
 
 chart.Correlation(my_data, histogram=TRUE, pch=19)
@@ -234,15 +257,27 @@ chart.Correlation(my_data, histogram=TRUE, pch=19)
 data$HeartDisease <- factor(data$HeartDisease,
                             levels = c(1,0),
                             labels = c("yes", "no"))
-boxplot(RestingBP ~ HeartDisease, data = data, main = "Resting Blood Pressure by Heart Disease Status")
+boxplot(RestingBP ~ HeartDisease, id=TRUE, data=data, main = "Resting Blood Pressure by Heart Disease Status")
+
+plotmeans(RestingBP ~ HeartDisease, data=data)
+
+ddply(data,~HeartDisease,summarise,mean=mean(RestingBP),sd=sd(RestingBP),n=length(RestingBP))
+
+summary(aov(RestingBP ~ HeartDisease, data=data))
 
 # Does cholesterol differ significantly between those who 
 # have heart disease and those who do not?
-data_chol$HeartDisease <- factor(data_chol$HeartDisease,
+data$HeartDisease <- factor(data$HeartDisease,
                                  levels = c(1,0),
                                  labels = c("yes", "no"))
 
-boxplot(Cholesterol ~ HeartDisease, data = data_clean, main = "Cholesterol by Heart Disease Status")
+boxplot(Cholesterol ~ HeartDisease, id = TRUE, data = data, main = "Cholesterol by Heart Disease Status")
+
+plotmeans(Cholesterol ~ HeartDisease, data=data)
+
+ddply(data,~HeartDisease,summarise,mean=mean(Cholesterol),sd=sd(Cholesterol),n=length(Cholesterol))
+
+summary(aov(Cholesterol ~ HeartDisease, data=data))
 
 # Does mean differ by class? T-test
 t.test(Age~HeartDisease, alternative='two.sided', conf.level=.95, var.equal=FALSE, data=data)
@@ -404,9 +439,7 @@ ggplot(data, aes(x = Age, y = as.numeric(HeartDisease) - 1)) +
 # if i don't use PCA, i have 11 predictors and only 510 features, troppo poche
 
 # Random forest
-install.packages("tree")
 library(tree)
-install.packages("ISLR")
 library(ISLR)
 
 tree.carseats=tree(HeartDisease~.,data=data)
