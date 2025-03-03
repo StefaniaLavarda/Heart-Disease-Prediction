@@ -1,4 +1,4 @@
-# Heart Disease Data Analysis
+# Heart Disease unsupervised and supervised project
 
 ## 1. Load required libraries
 library(readr)
@@ -18,24 +18,41 @@ library(PerformanceAnalytics)
 library(corrplot)
 library(ggpubr)
 library(gplots)
+library(tidyverse )
+library(haven)
+library(FactoMineR)
+library(factoextra)
 
 ## 2. Load and Preprocess the Dataset
 
 # Load the dataset
 heart_disease_dataset <- read_csv("/Users/stefanialavarda/Desktop/statistical_project_1/heart.csv")
 data <- heart_disease_dataset
-
-# Remove missing values
-data <- na.omit(data) 
-
-# Rename columns 
-colnames(data) <- c("Age", "Sex", "ChestPainType", "RestingBP", "Cholesterol", "FastingBS", 
-                    "RestingECG", "MaxHR", "ExerciseAngina", "Oldpeak", "STSlope", "HeartDisease")
-
+                       
 # Convert categorical variables to factors
-categorical_vars <- c("Sex", "ChestPainType", "FastingBS", "RestingECG", "ExerciseAngina", "STSlope", "HeartDisease")
+categorical_vars <- c("Sex", "ChestPainType", "FastingBS", "RestingECG", "ExerciseAngina", "ST_Slope", "HeartDisease")
 data[categorical_vars] <- lapply(data[categorical_vars], as.factor)
 
+# Scaled numerical variables
+numerical_vars <- c("Age", "RestingBP", "Cholesterol", "MaxHR", "Oldpeak")
+data[numerical_vars] <- lapply(data[numerical_vars], scale)
+
+# Perform FAMD 
+res.famd <- FAMD(data, ncp = 5, graph = FALSE)
+
+ind <- get_famd_ind(res.famd)
+ind
+# Visualize the individuals
+fviz_famd_ind(res.famd, col.ind.sup= "lightblue", repel = TRUE)
+
+# Visualize the variables
+fviz_famd_var(res.famd , repel = TRUE )
+# Contribution to the first dimension
+fviz_contrib(res.famd, "var", axes = 1)
+# Contribution to the second dimension
+fviz_contrib(res.famd, "var", axes = 2)
+
+fviz_screeplot(res.famd)
 ## 3. Exploratory Data Analysis (EDA)
 
 # Summary statistics
@@ -126,7 +143,6 @@ ggplot(data, aes(x = STSlope, fill = HeartDisease)) +
   theme_minimal()
 
 # Visualization of numerical variables
-# Age RestingBP Cholesterol MaxHR OldPeak
 
 # Heart Disease distribution by Cholesterol level
 data <- data %>% filter(Cholesterol > 0)
@@ -458,7 +474,7 @@ plot(tree.carseats);text(tree.carseats,pretty=0)
 tree.pred=predict(tree.carseats,data[-train,],type="class")
 with(data[-train,],table(tree.pred,HeartDisease))
 
-(184+223)/918
+(184+121)/346
 
 set.seed(101)
 cv.carseats=cv.tree(tree.carseats,FUN=prune.misclass)
@@ -472,4 +488,16 @@ plot(prune.carseats);text(prune.carseats,pretty=0)
 tree.pred=predict(prune.carseats,data[-train,],type="class")
 with(data[-train,],table(tree.pred,HeartDisease))
 
-(197+221)/918
+(165+121)/346
+
+
+library("rpart")
+library("rpart.plot")
+tree3<-rpart(HeartDisease~.,data[,-1])
+printcp(tree3)
+rpart.plot(tree3)
+# Selecting the optimal subtree according to the 1-SE rule
+tree4<-prune(tree3,cp=0.0001)
+rpart.plot(tree4)
+
+
