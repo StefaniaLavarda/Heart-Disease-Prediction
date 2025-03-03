@@ -22,16 +22,19 @@ library(tidyverse )
 library(haven)
 library(FactoMineR)
 library(factoextra)
+library(mclust)
+library(cluster)
+library(clusterSim)
 
 ## 2. Load and Preprocess the Dataset
 
 # Load the dataset
 heart_disease_dataset <- read_csv("/Users/stefanialavarda/Desktop/statistical_project_1/heart.csv")
 data <- heart_disease_dataset
-                       
-# Convert categorical variables to factors
-categorical_vars <- c("Sex", "ChestPainType", "FastingBS", "RestingECG", "ExerciseAngina", "ST_Slope", "HeartDisease")
-data[categorical_vars] <- lapply(data[categorical_vars], as.factor)
+
+# Convert character variables to factors
+character_vars <- sapply(data, is.character)
+data[character_vars] <- lapply(data[character_vars]), as.factor)
 
 # Scaled numerical variables
 numerical_vars <- c("Age", "RestingBP", "Cholesterol", "MaxHR", "Oldpeak")
@@ -40,24 +43,80 @@ data[numerical_vars] <- lapply(data[numerical_vars], scale)
 # Perform FAMD 
 res.famd <- FAMD(data, ncp = 5, graph = FALSE)
 
-ind <- get_famd_ind(res.famd)
-ind
 # Visualize the individuals
 fviz_famd_ind(res.famd, col.ind.sup= "lightblue", repel = TRUE)
 
 # Visualize the variables
 fviz_famd_var(res.famd , repel = TRUE )
+
 # Contribution to the first dimension
 fviz_contrib(res.famd, "var", axes = 1)
+
 # Contribution to the second dimension
 fviz_contrib(res.famd, "var", axes = 2)
 
 fviz_screeplot(res.famd)
+
+# Hierarchical clustering on FAMD result
+res.hcpc <- HCPC(res.famd , graph = FALSE)
+
+# Number of clusters chosen
+res.hcpc$call$t$nb.clust
+
+# Visualize dendrogram
+plot(res.hcpc, choice = "tree")
+
+# Visualize clusters in factor map
+plot(res.hcpc, choice = "map")
+
+# Clustering with mclust using the first two dimensions of the FAMD result
+
+# Select first two components
+heart_data <- res.famd$ind$coord[ , 1:2]
+
+# Fit model-based clustering
+mc_fit <- Mclust(heart_data)
+summary(mc_fit)
+
+# Best model based on BIC, number of clusters, etc 
+mc_fit$BIC
+mclust_clusters <- mc_fit$classification # Cluster assignments
+mc_fit$G
+
+# Plot classification results
+plot(mc_fit, what="classification")
+
+# Check uncertainty results
+plot(mc_fit, what="uncertainty")
+
+# Silhouette analysis
+
+# Distance matrix
+d <- dist(heart_data)
+sil_mclust <- silhouette(mclust_clusters, d)
+
+# Print summary of average silhouette width
+summary(sil_mclust)
+
+# Plot the silhouette
+plot(sil_mclust, main = "Silhouette Plot for Mclust Clusters")
+
+# Gap Statistic
+set.seed(123)
+gap_kmeans <- clusGap(heart_data, FUN = kmeans, nstart = 25, K.max = 10, B = 50)
+
+# View the gap statistic results
+print(gap_kmeans, method = "firstmax")
+
+# Visualize the gap statistic
+fviz_gap_stat(gap_kmeans) + ggtitle("Gap Statistic for K-means")
+
 ## 3. Exploratory Data Analysis (EDA)
 
 # Summary statistics
 View(data)
 summary(data)
+str(data)
 
 # Visualization of categorical variables
 
