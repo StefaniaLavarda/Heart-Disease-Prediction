@@ -34,82 +34,13 @@ data <- heart_disease_dataset
 
 # Convert character variables to factors
 character_vars <- sapply(data, is.character)
-data[character_vars] <- lapply(data[character_vars]), as.factor)
+data[character_vars] <- lapply(data[character_vars], as.factor)
+data$HeartDisease <- as.factor(data$HeartDisease)
 
 # Scaled numerical variables
 numerical_vars <- c("Age", "RestingBP", "Cholesterol", "MaxHR", "Oldpeak")
 data[numerical_vars] <- lapply(data[numerical_vars], scale)
 
-# Perform FAMD 
-res.famd <- FAMD(data, ncp = 5, graph = FALSE)
-
-# Visualize the individuals
-fviz_famd_ind(res.famd, col.ind.sup= "lightblue", repel = TRUE)
-
-# Visualize the variables
-fviz_famd_var(res.famd , repel = TRUE )
-
-# Contribution to the first dimension
-fviz_contrib(res.famd, "var", axes = 1)
-
-# Contribution to the second dimension
-fviz_contrib(res.famd, "var", axes = 2)
-
-fviz_screeplot(res.famd)
-
-# Hierarchical clustering on FAMD result
-res.hcpc <- HCPC(res.famd , graph = FALSE)
-
-# Number of clusters chosen
-res.hcpc$call$t$nb.clust
-
-# Visualize dendrogram
-plot(res.hcpc, choice = "tree")
-
-# Visualize clusters in factor map
-plot(res.hcpc, choice = "map")
-
-# Clustering with mclust using the first two dimensions of the FAMD result
-
-# Select first two components
-heart_data <- res.famd$ind$coord[ , 1:2]
-
-# Fit model-based clustering
-mc_fit <- Mclust(heart_data)
-summary(mc_fit)
-
-# Best model based on BIC, number of clusters, etc 
-mc_fit$BIC
-mclust_clusters <- mc_fit$classification # Cluster assignments
-mc_fit$G
-
-# Plot classification results
-plot(mc_fit, what="classification")
-
-# Check uncertainty results
-plot(mc_fit, what="uncertainty")
-
-# Silhouette analysis
-
-# Distance matrix
-d <- dist(heart_data)
-sil_mclust <- silhouette(mclust_clusters, d)
-
-# Print summary of average silhouette width
-summary(sil_mclust)
-
-# Plot the silhouette
-plot(sil_mclust, main = "Silhouette Plot for Mclust Clusters")
-
-# Gap Statistic
-set.seed(123)
-gap_kmeans <- clusGap(heart_data, FUN = kmeans, nstart = 25, K.max = 10, B = 50)
-
-# View the gap statistic results
-print(gap_kmeans, method = "firstmax")
-
-# Visualize the gap statistic
-fviz_gap_stat(gap_kmeans) + ggtitle("Gap Statistic for K-means")
 
 ## 3. Exploratory Data Analysis (EDA)
 
@@ -354,6 +285,9 @@ ddply(data,~HeartDisease,summarise,mean=mean(Cholesterol),sd=sd(Cholesterol),n=l
 
 summary(aov(Cholesterol ~ HeartDisease, data=data))
 
+# Correlation between MaxHR and Age
+
+
 # Does mean differ by class? T-test
 t.test(Age~HeartDisease, alternative='two.sided', conf.level=.95, var.equal=FALSE, data=data)
 t.test(RestingBP~HeartDisease, alternative='two.sided', conf.level=.95, var.equal=FALSE, data=data)
@@ -416,7 +350,81 @@ print (prop.table(mytab, 2) )
 Test <- chisq.test(mytab, correct=FALSE)
 Test
 
-## 5. Split Dataset into Training and Testing Sets
+## 5. FAMD + clustering
+
+# Perform FAMD 
+res.famd <- FAMD(data, ncp = 5, graph = FALSE)
+
+# Visualize the individuals
+fviz_famd_ind(res.famd, col.ind.sup= "lightblue", repel = TRUE)
+
+# Visualize the variables
+fviz_famd_var(res.famd , repel = TRUE )
+
+# Contribution to the first dimension
+fviz_contrib(res.famd, "var", axes = 1)
+
+# Contribution to the second dimension
+fviz_contrib(res.famd, "var", axes = 2)
+
+fviz_screeplot(res.famd)
+
+# Hierarchical clustering on FAMD result
+res.hcpc <- HCPC(res.famd , graph = FALSE)
+
+# Number of clusters chosen
+res.hcpc$call$t$nb.clust
+
+# Visualize dendrogram
+plot(res.hcpc, choice = "tree")
+
+# Visualize clusters in factor map
+plot(res.hcpc, choice = "map")
+
+# Clustering with mclust using the first two dimensions of the FAMD result
+
+# Select first two components
+heart_data <- res.famd$ind$coord[ , 1:2]
+
+# Fit model-based clustering
+mc_fit <- Mclust(heart_data)
+summary(mc_fit)
+
+# Best model based on BIC, number of clusters, etc 
+mc_fit$BIC
+mclust_clusters <- mc_fit$classification # Cluster assignments
+mc_fit$G
+
+# Plot classification results
+plot(mc_fit, what="classification")
+
+# Check uncertainty results
+plot(mc_fit, what="uncertainty")
+
+# Silhouette analysis
+
+# Distance matrix
+d <- dist(heart_data)
+sil_mclust <- silhouette(mclust_clusters, d)
+
+# Print summary of average silhouette width
+summary(sil_mclust)
+
+# Plot the silhouette
+plot(sil_mclust, main = "Silhouette Plot for Mclust Clusters")
+
+# Gap Statistic
+set.seed(123)
+gap_kmeans <- clusGap(heart_data, FUN = kmeans, nstart = 25, K.max = 10, B = 50)
+
+# View the gap statistic results
+print(gap_kmeans, method = "firstmax")
+
+# Visualize the gap statistic
+fviz_gap_stat(gap_kmeans) + ggtitle("Gap Statistic for K-means")
+
+
+## 6. Split Dataset into Training and Testing Sets
 set.seed(123)  
 train_index <- createDataPartition(data$HeartDisease, p = 0.6, list = FALSE)
 train_data <- data[train_index, ]
@@ -489,7 +497,7 @@ ggplot(roc_data, aes(x = FPR, y = TPR, color = Model)) +
   theme(plot.title = element_text(hjust = 0.5))
 
 
-## 6. Logistic Regression Model
+## 7. Logistic Regression Model
 logistic_model_age <- glm(HeartDisease ~ Age, data = data, family = binomial)
 summary(logistic_model_age)
 logLik(logistic_model_age)
@@ -509,9 +517,6 @@ ggplot(data, aes(x = Age, y = as.numeric(HeartDisease) - 1)) +
   geom_line(aes(y = fitted_values), color = "red", size = 1.5) + 
   labs(x = "Age", y = "Heart Disease Probability") +
   theme_bw()
-
-# use PCA to detect the most importante variable feature and then used them for neural network
-# if i don't use PCA, i have 11 predictors and only 510 features, troppo poche
 
 # Random forest
 library(tree)
@@ -549,7 +554,6 @@ with(data[-train,],table(tree.pred,HeartDisease))
 
 (165+121)/346
 
-
 library("rpart")
 library("rpart.plot")
 tree3<-rpart(HeartDisease~.,data[,-1])
@@ -559,4 +563,5 @@ rpart.plot(tree3)
 tree4<-prune(tree3,cp=0.0001)
 rpart.plot(tree4)
 
+# Neural Networks
 
